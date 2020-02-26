@@ -971,198 +971,202 @@ TEST_F(SHMTransportTests, dead_listener_port_recover)
     thread_wait_deadlock.join();
 }
 
-/*TEST_F(SHMTransportTests, simple_latency)
-   {
-    int num_samples = 1000;
-    char data[16] = { "" };
+TEST_F(SHMTransportTests, simple_latency)
+{
+    int num_samples = 10000;
+    //std::vector<uint32_t> data_sizes = {8*1024, 16*1024, 32*1024, 64*1024, 128*1024, 256*1024, 512*1024, 1024*1024};
+    std::vector<uint32_t> data_sizes = {8*1024};
 
-    std::thread thread_subscriber([&]
+    struct results
+    {
+        uint32_t sample_size;
+        std::chrono::high_resolution_clock::rep total_times;
+        std::chrono::high_resolution_clock::rep min_time;
+        std::chrono::high_resolution_clock::rep max_time;
+    };
+
+    std::vector<results> data_results;
+
+    for (auto data_size : data_sizes)
+    {    
+        auto data = std::unique_ptr<octet[]>(new octet[data_size]);
+
+        printf("Starting %u(bytes) measure...\n", data_size);
+
+        Locator_t sub_locator;
+        sub_locator.kind = LOCATOR_KIND_SHM;
+        sub_locator.port = 0;
+
+        Locator_t pub_locator;
+        pub_locator.kind = LOCATOR_KIND_SHM;
+        pub_locator.port = 1;
+
+        SharedMemTransportDescriptor my_descriptor;
+        auto segment_size = data_sizes.back() * 2;
+        my_descriptor.segment_size(segment_size, segment_size);
+
+        uint32_t full_fragments = 1;
+        uint32_t fragment_size = data_size;
+        uint32_t last_fragment_bytes = 0;
+
+        uint32_t max_message_size = my_descriptor.max_message_size();
+
+        if(data_size > max_message_size)
         {
-            SharedMemManager shared_mem_manager("SHMTransportTests");
-            auto port_pub_to_sub = shared_mem_manager.open_port(0, 64, 1000);
-            auto port_sub_to_pub = shared_mem_manager.open_port(1, 64, 1000);
-            auto listener_sub = port_pub_to_sub->create_listener();
+            fragment_size = max_message_size;
+            full_fragments = data_size / max_message_size;
+            last_fragment_bytes = data_size % max_message_size;
+        }
 
-            auto segment = shared_mem_manager.create_segment(sizeof(data)*64,64);
-            int i = num_samples;
+        uint32_t total_sends = ( full_fragments + ((last_fragment_bytes > 0) ? 1 : 0) ) * num_samples;
 
-            do
+        std::thread thread_subscriber([&]
             {
-                auto recv_sample = listener_sub->pop();
+                SharedMemTransport transport(my_descriptor);
+                ASSERT_TRUE(transport.init());
 
-                auto sample_to_send = segment->alloc_buffer(sizeof(data));
-                memcpy(sample_to_send->data(), data, sizeof(data));
-                ASSERT_TRUE(port_sub_to_pub->try_push(sample_to_send));
-            } while (--i);
-        });
+                Semaphore sem;
+                MockReceiverResource receiver(transport, sub_locator);
+                MockMessageReceiver* msg_recv = dynamic_cast<MockMessageReceiver*>(receiver.CreateMessageReceiver());
 
-    std::thread thread_publisher([&]
-        {
-            SharedMemManager shared_mem_manager("SHMTransportTests");
-            auto port_pub_to_sub = shared_mem_manager.open_port(0, 64, 1000);
-            auto port_sub_to_pub = shared_mem_manager.open_port(1, 64, 1000);
-            auto listener_pub = port_sub_to_pub->create_listener();
+                int buffers_to_receive = total_sends;
 
-            auto segment = shared_mem_manager.create_segment(sizeof(data) * 64, 64);
-            int i = num_samples;
+                LocatorList_t send_locators_list;
+                send_locators_list.push_back(pub_locator);
 
-            std::chrono::high_resolution_clock::rep total_times = 0;
-            std::chrono::high_resolution_clock::rep min_time = (std::numeric_limits<std::chrono::high_resolution_clock::rep>::max)();
-            std::chrono::high_resolution_clock::rep max_time = (std::numeric_limits<std::chrono::high_resolution_clock::rep>::min)();
+                eprosima::fastrtps::rtps::SendResourceList send_resource_list;
+                ASSERT_TRUE(transport.OpenOutputChannel(send_resource_list, pub_locator));
 
-            while (i--)
-            {
-                auto t0 = std::chrono::high_resolution_clock::now();
-
-                auto sample_to_send = segment->alloc_buffer(sizeof(data));
-                memcpy(sample_to_send->data(), data, sizeof(data));
-                ASSERT_TRUE(port_pub_to_sub->try_push(sample_to_send));
-                sample_to_send.reset();
-
-                auto recv_sample = listener_pub->pop();
-
-                auto t1 = std::chrono::high_resolution_clock::now();
-
-                auto t = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-                if (t < min_time)
+                std::function<void()> sub_callback = [&]()
                 {
-                    min_time = t;
-                }
-                if (t > max_time)
-                {
-                    max_time = t;
-                }
-                total_times += t;
-            }
-
-            printf("LatencyTest for %d samples. Avg = %.3f(us) Min = %.3f(us) Max = %.3f(us)\n", num_samples, total_times / (num_samples*1000.0), min_time/1000.0, max_time/1000.0);
-        });
-
-    thread_subscriber.join();
-    thread_publisher.join();
-   }*/
-
-/*TEST_F(SHMTransportTests, simple_latency2)
-   {
-    int num_samples = 1000;
-    octet data[16] = { "" };
-
-    Locator_t sub_locator;
-    sub_locator.kind = LOCATOR_KIND_SHM;
-    sub_locator.port = 0;
-
-    Locator_t pub_locator;
-    pub_locator.kind = LOCATOR_KIND_SHM;
-    pub_locator.port = 1;
-
-    SharedMemTransportDescriptor my_descriptor;
-
-    std::thread thread_subscriber([&]
-        {
-            SharedMemTransport transport(my_descriptor);
-            ASSERT_TRUE(transport.init());
-
-            Semaphore sem;
-            MockReceiverResource receiver(transport, sub_locator);
-            MockMessageReceiver* msg_recv = dynamic_cast<MockMessageReceiver*>(receiver.CreateMessageReceiver());
-
-            int samples_to_receive = num_samples;
-
-            LocatorList_t send_locators_list;
-            send_locators_list.push_back(pub_locator);
-
-            eprosima::fastrtps::rtps::SendResourceList send_resource_list;
-            ASSERT_TRUE(transport.OpenOutputChannel(send_resource_list, pub_locator));
-
-            std::function<void()> sub_callback = [&]()
-            {
-                Locators locators_begin(send_locators_list.begin());
-                Locators locators_end(send_locators_list.end());
-
-                EXPECT_TRUE(send_resource_list.at(0)->send(data, sizeof(data), &locators_begin, &locators_end,
-                    (std::chrono::steady_clock::now() + std::chrono::milliseconds(100))));
-
-                if (--samples_to_receive == 0)
-                {
-                    sem.post();
-                }
-            };
-
-            msg_recv->setCallback(sub_callback);
-
-            sem.wait();
-        });
-
-    std::thread thread_publisher([&]
-        {
-            SharedMemTransport transport(my_descriptor);
-            ASSERT_TRUE(transport.init());
-
-            Semaphore sem;
-            MockReceiverResource receiver(transport, pub_locator);
-            MockMessageReceiver* msg_recv = dynamic_cast<MockMessageReceiver*>(receiver.CreateMessageReceiver());
-
-            int samples_sent = 0;
-
-            LocatorList_t send_locators_list;
-            send_locators_list.push_back(sub_locator);
-
-            eprosima::fastrtps::rtps::SendResourceList send_resource_list;
-            ASSERT_TRUE(transport.OpenOutputChannel(send_resource_list, sub_locator));
-
-            std::chrono::high_resolution_clock::rep total_times = 0;
-            std::chrono::high_resolution_clock::rep min_time = (std::numeric_limits<std::chrono::high_resolution_clock::rep>::max)();
-            std::chrono::high_resolution_clock::rep max_time = (std::numeric_limits<std::chrono::high_resolution_clock::rep>::min)();
-
-            auto t0 = std::chrono::high_resolution_clock::now();
-
-            Locators locators_begin(send_locators_list.begin());
-            Locators locators_end(send_locators_list.end());
-
-            EXPECT_TRUE(send_resource_list.at(0)->send(data, sizeof(data), &locators_begin, &locators_end,
-                (std::chrono::steady_clock::now() + std::chrono::milliseconds(100))));
-
-            std::function<void()> pub_callback = [&]()
-            {
-                if (++samples_sent < num_samples)
-                {
-                    auto t1 = std::chrono::high_resolution_clock::now();
-
-                    auto t = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-                    if (t < min_time)
-                    {
-                        min_time = t;
-                    }
-                    if (t > max_time)
-                    {
-                        max_time = t;
-                    }
-                    total_times += t;
-
-                    t0 = std::chrono::high_resolution_clock::now();
-
                     Locators locators_begin(send_locators_list.begin());
                     Locators locators_end(send_locators_list.end());
 
-                    EXPECT_TRUE(send_resource_list.at(0)->send(data, sizeof(data), &locators_begin, &locators_end,
-                        (std::chrono::steady_clock::now() + std::chrono::milliseconds(100))));
-                }
-                else
+                    ASSERT_TRUE(send_resource_list.at(0)->send(msg_recv->data, msg_recv->data_size, &locators_begin, &locators_end,
+                        (std::chrono::steady_clock::now() + std::chrono::milliseconds(1000))));
+
+                    if (--buffers_to_receive == 0)
+                    {
+                        sem.post();
+                    }
+                };
+
+                msg_recv->setCallback(sub_callback);
+
+                sem.wait();
+            });
+
+        std::thread thread_publisher([&]
+            {
+                SharedMemTransport transport(my_descriptor);
+                ASSERT_TRUE(transport.init());
+
+                Semaphore sem;
+                MockReceiverResource receiver(transport, pub_locator);
+                MockMessageReceiver* msg_recv = dynamic_cast<MockMessageReceiver*>(receiver.CreateMessageReceiver());
+
+                int samples_sent = 0;
+
+                LocatorList_t send_locators_list;
+                send_locators_list.push_back(sub_locator);
+
+                eprosima::fastrtps::rtps::SendResourceList send_resource_list;
+                ASSERT_TRUE(transport.OpenOutputChannel(send_resource_list, sub_locator));
+
+                data_results.push_back(
+                    {
+                        data_size,
+                        0, 
+                        (std::numeric_limits<std::chrono::high_resolution_clock::rep>::max)(),
+                        (std::numeric_limits<std::chrono::high_resolution_clock::rep>::min)()
+                    });
+
+                auto& results = data_results.back();
+                
+                auto t0 = std::chrono::high_resolution_clock::now();
+
+                Locators locators_begin(send_locators_list.begin());
+                Locators locators_end(send_locators_list.end());
+
+                auto my_full_fragments = full_fragments;
+                auto my_last_fragment_bytes = last_fragment_bytes;
+                
+                ASSERT_TRUE(send_resource_list.at(0)->send(data.get(), fragment_size, &locators_begin, &locators_end,
+                    (std::chrono::steady_clock::now() + std::chrono::milliseconds(1000))));
+
+                my_full_fragments--;
+
+                std::function<void()> pub_callback = [&]()
                 {
-                    sem.post();
-                }
-            };
+                    Locators locators_begin(send_locators_list.begin());
+                    Locators locators_end(send_locators_list.end());
 
-            msg_recv->setCallback(pub_callback);
+                    if(my_full_fragments > 0)
+                    {
+                        ASSERT_TRUE(send_resource_list.at(0)->send(data.get(), fragment_size, &locators_begin, &locators_end,
+                            (std::chrono::steady_clock::now() + std::chrono::milliseconds(1000))));
+                        my_full_fragments--;
+                    }
+                    else
+                    {
+                        if(my_last_fragment_bytes > 0)
+                        {
+                            ASSERT_TRUE(send_resource_list.at(0)->send(data.get(), last_fragment_bytes, &locators_begin, &locators_end,
+                            (std::chrono::steady_clock::now() + std::chrono::milliseconds(1000))));
 
-            sem.wait();
+                            my_last_fragment_bytes = 0;
+                        }
+                        else
+                        {
+                            auto t1 = std::chrono::high_resolution_clock::now();
 
-            printf("LatencyTest for %d samples. Avg = %.3f(us) Min = %.3f(us) Max = %.3f(us)\n", num_samples, total_times / (num_samples * 1000.0), min_time / 1000.0, max_time / 1000.0);
-        });
+                            auto t = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count() / 2;
+                            if (t < results.min_time)
+                            {
+                                results.min_time = t;
+                            }
+                            if (t > results.max_time)
+                            {
+                                results.max_time = t;
+                            }
+                            results.total_times += t;
 
-    thread_subscriber.join();
-    thread_publisher.join();
-   }*/
+                            samples_sent++;
+                            t0 = std::chrono::high_resolution_clock::now();
+
+                            my_full_fragments = full_fragments;
+                            my_last_fragment_bytes = last_fragment_bytes;
+
+                            if(samples_sent < num_samples)
+                            {
+                                ASSERT_TRUE(send_resource_list.at(0)->send(data.get(), fragment_size, &locators_begin, &locators_end,
+                                (std::chrono::steady_clock::now() + std::chrono::milliseconds(1000))));
+                                my_full_fragments--;
+                                
+                            }
+                            else
+                            {
+                                sem.post();
+                            }
+                        }
+                    }
+                };
+
+                msg_recv->setCallback(pub_callback);
+
+                sem.wait();
+            });
+
+        thread_subscriber.join();
+        thread_publisher.join();
+    }
+
+    for(const auto& results : data_results)
+    {
+        printf("LatencyTest for %d samples of %08d(bytes). Avg = %.3f(us) Min = %.3f(us) Max = %.3f(us)\n", num_samples, results.sample_size, results.total_times / (num_samples * 1000.0), results.min_time / 1000.0, results.max_time / 1000.0);
+    }
+}
+
 
 /*TEST_F(SHMTransportTests, simple_throughput)
    {
