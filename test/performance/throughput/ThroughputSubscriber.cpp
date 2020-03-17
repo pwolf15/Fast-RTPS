@@ -68,7 +68,7 @@ void ThroughputSubscriber::DataSubListener::onSubscriptionMatched(
     std::unique_lock<std::mutex> lock(throughput_subscriber_.data_mutex_);
     if (match_info.status == MATCHED_MATCHING)
     {
-        std::cout << C_RED << "DATA Sub Matched" << C_DEF << std::endl;
+        std::cout << C_RED << "Sub: DATA Sub Matched" << C_DEF << std::endl;
         ++throughput_subscriber_.data_discovery_count_;
     }
     else
@@ -154,7 +154,7 @@ void ThroughputSubscriber::CommandSubListener::onSubscriptionMatched(
     std::unique_lock<std::mutex> lock(throughput_subscriber_.command_mutex_);
     if (match_info.status == MATCHED_MATCHING)
     {
-        std::cout << C_RED << "COMMAND Sub Matched" << C_DEF << std::endl;
+        std::cout << C_RED << "Sub: COMMAND Sub Matched" << C_DEF << std::endl;
         ++throughput_subscriber_.command_discovery_count_;
     }
     else
@@ -192,7 +192,7 @@ void ThroughputSubscriber::CommandPubListener::onPublicationMatched(
     std::unique_lock<std::mutex> lock(throughput_subscriber_.command_mutex_);
     if (info.status == MATCHED_MATCHING)
     {
-        std::cout << C_RED << "COMMAND Pub Matched" << C_DEF << std::endl;
+        std::cout << C_RED << "Sub: COMMAND Pub Matched" << C_DEF << std::endl;
         ++throughput_subscriber_.command_discovery_count_;
     }
     else
