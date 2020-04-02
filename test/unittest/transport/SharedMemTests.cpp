@@ -971,7 +971,7 @@ TEST_F(SHMTransportTests, dead_listener_port_recover)
     thread_wait_deadlock.join();
 }
 
-TEST_F(SHMTransportTests, simple_latency)
+/*TEST_F(SHMTransportTests, simple_latency)
 {
     int num_samples = 10000;
     //std::vector<uint32_t> data_sizes = {8*1024, 16*1024, 32*1024, 64*1024, 128*1024, 256*1024, 512*1024, 1024*1024};
@@ -1165,7 +1165,7 @@ TEST_F(SHMTransportTests, simple_latency)
     {
         printf("LatencyTest for %d samples of %08d(bytes). Avg = %.3f(us) Min = %.3f(us) Max = %.3f(us)\n", num_samples, results.sample_size, results.total_times / (num_samples * 1000.0), results.min_time / 1000.0, results.max_time / 1000.0);
     }
-}
+}*/
 
 
 /*TEST_F(SHMTransportTests, simple_throughput)
