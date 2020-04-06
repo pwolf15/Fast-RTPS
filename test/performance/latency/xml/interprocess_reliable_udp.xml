@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
     <profiles>
+        <transport_descriptors>
+            <transport_descriptor>
+                <transport_id>udp_transport</transport_id>
+                <type>UDPv4</type>
+                <interfaceWhiteList>
+                    <address>127.0.0.1</address>
+                </interfaceWhiteList>
+            </transport_descriptor>
+        </transport_descriptors>	
         <!-- PUBLISHER -->
         <participant profile_name="pub_participant_profile">
             <rtps>
@@ -8,6 +17,10 @@
                     <domainId>231</domainId>
                 </builtin>
                 <name>latency_test_publisher</name>
+                <useBuiltinTransports>false</useBuiltinTransports>
+                <userTransports>
+                    <transport_id>udp_transport</transport_id>
+                </userTransports>
             </rtps>
         </participant>
         <publisher profile_name="pub_publisher_profile">
@@ -48,6 +61,10 @@
                     <domainId>231</domainId>
                 </builtin>
                 <name>latency_test_subscriber</name>
+                <useBuiltinTransports>false</useBuiltinTransports>
+                <userTransports>
+                    <transport_id>udp_transport</transport_id>
+                </userTransports>
             </rtps>
         </participant>
         <publisher profile_name="sub_publisher_profile">
