@@ -15,6 +15,9 @@
             <rtps>
                 <builtin>
                     <domainId>231</domainId>
+                    <discovery_config>
+                        <ignoreParticipantFlags>FILTER_DIFFERENT_HOST</ignoreParticipantFlags>
+                    </discovery_config>
                 </builtin>
                 <name>latency_test_publisher</name>
                 <useBuiltinTransports>false</useBuiltinTransports>
@@ -59,6 +62,9 @@
             <rtps>
                 <builtin>
                     <domainId>231</domainId>
+                    <discovery_config>
+                        <ignoreParticipantFlags>FILTER_DIFFERENT_HOST</ignoreParticipantFlags>
+                    </discovery_config>
                 </builtin>
                 <name>latency_test_subscriber</name>
                 <useBuiltinTransports>false</useBuiltinTransports>
