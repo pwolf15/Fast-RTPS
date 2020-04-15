@@ -73,7 +73,7 @@ public:
     struct BufferDescriptor
     {
         SharedMemSegment::Id source_segment_id;
-        SharedMemSegment::offset buffer_node_offset;
+        SharedMemSegment::Offset buffer_node_offset;
     };
 
     typedef MultiProducerConsumerRingBuffer<BufferDescriptor>::Listener Listener;
@@ -81,17 +81,28 @@ public:
 
     struct PortNode
     {
-        UUID<8> uuid;
+        std::atomic<std::chrono::high_resolution_clock::rep> last_listeners_status_check_time_ms;
+        std::atomic<uint32_t> ref_counter;
+
+        SharedMemSegment::Offset buffer;
+        SharedMemSegment::Offset buffer_node;        
+
         uint32_t port_id;
+        uint32_t num_listeners;
+        uint32_t waiting_count;
+        uint32_t healthy_check_timeout_ms;
+        uint32_t port_wait_timeout_ms;
+        uint32_t max_buffer_descriptors;
+
+        uint32_t is_port_ok : 1;
+        uint32_t is_opened_read_exclusive : 1;
+        uint32_t is_opened_for_reading : 1;
+        uint32_t pad : 29;
 
         SharedMemSegment::condition_variable empty_cv;
         SharedMemSegment::mutex empty_cv_mutex;
 
-        SharedMemSegment::offset buffer;
-        SharedMemSegment::offset buffer_node;
-        std::atomic<uint32_t> ref_counter;
-
-        uint32_t waiting_count;
+        UUID<8> uuid;
 
         static constexpr size_t LISTENERS_STATUS_SIZE = 1024;
         struct ListenerStatus
@@ -102,16 +113,7 @@ public:
             uint8_t pad                     : 1;
         };
         ListenerStatus listeners_status[LISTENERS_STATUS_SIZE];
-        uint32_t num_listeners;
-        std::atomic<std::chrono::high_resolution_clock::rep> last_listeners_status_check_time_ms;
-        uint32_t healthy_check_timeout_ms;
-        uint32_t port_wait_timeout_ms;
-        uint32_t max_buffer_descriptors;
-
-        bool is_port_ok;
-        bool is_opened_read_exclusive;
-        bool is_opened_for_reading;
-
+        
         char domain_name[MAX_DOMAIN_NAME_LENGTH+1];
     };
 
@@ -423,6 +425,7 @@ public:
             , node_(node)
             , overflows_count_(0)
         {
+printf("PortNode size = %d\n", sizeof(PortNode));
             auto buffer_base = static_cast<MultiProducerConsumerRingBuffer<BufferDescriptor>::Cell*>(
                 port_segment_->get_address_from_offset(node_->buffer));
 

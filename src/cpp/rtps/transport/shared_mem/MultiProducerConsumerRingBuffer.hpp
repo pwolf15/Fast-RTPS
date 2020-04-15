@@ -157,10 +157,9 @@ public:
     struct Node
     {
         std::atomic<Pointer> pointer_;
-        uint32_t total_cells_;
-
-        uint32_t registered_listeners_;
         std::atomic<RegisterPushLock> register_push_lock_;
+        uint32_t total_cells_;
+        uint32_t registered_listeners_;        
     };
 
     MultiProducerConsumerRingBuffer(
